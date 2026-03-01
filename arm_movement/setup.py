@@ -45,6 +45,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'forward_kinematics = arm_movement.forward_kine:main',
         ],
     },
 )
