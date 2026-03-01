@@ -46,6 +46,7 @@ setup(
     entry_points={
         'console_scripts': [
             'forward_kinematics = arm_movement.forward_kine:main',
+            'inverse_kinematics = arm_movement.inv_kine:main',
         ],
     },
 )
