@@ -11,7 +11,7 @@ class ForwardKinematicsNode(Node):
         super().__init__('forward_kinematics_node')
         self.subscription = self.create_subscription(
             JointState,
-            'joint_states',
+            '/joint_states',
             self.joint_state_callback,
             10
         )
@@ -42,15 +42,15 @@ class ForwardKinematicsNode(Node):
         
         # Log the end-effector position
         self.get_logger().info(f'End-effector position: x={ee_position[0]:.2f}, y={ee_position[1]:.2f}, z={ee_position[2]:.2f}')
-        self.get_logger().info(f'End-effector orientation: roll={ee_orientation[0]:.2f}, pitch={ee_orientation[1]:.2f}, yaw={ee_orientation[2]:.2f}')
+        self.get_logger().info(f'End-effector orientation: {ee_orientation}')
 
     def forward_kinematics(self, joint_angles):
         self.get_logger().info(f'Computing forward kinematics for joint angles: {joint_angles}')
     
-        robot_Tf_matrix = self.robot.get_T_a_b('base_link', 'gripper_frame_link')
+        robot_Tf_matrix = self.robot.get_T_a_b('world', 'gripper_frame_link')
         self.get_logger().info(f'Robot transformation matrix: {robot_Tf_matrix}')
         ee_position = robot_Tf_matrix[:3, 3]
-        ee_orientation = R.from_matrix(robot_Tf_matrix[:3, :3]).as_euler('xyz')
+        ee_orientation = R.from_matrix(robot_Tf_matrix[:3, :3]).as_quat()
         return (ee_position, ee_orientation)
 
 def main(args=None):

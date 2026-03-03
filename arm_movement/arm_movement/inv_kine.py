@@ -11,18 +11,20 @@ from scipy.spatial.transform import Rotation as R
 class InvKinematicsNode(Node):
     def __init__(self):
         super().__init__('inverse_kinematics_node')
+                # Declare parameters
+        self.declare_parameter('target_position',[0.2,-3.0,0.2])
+        self.declare_parameter('target_orientation',[0,0,0,1])
+        # Get parameters
+        target_position = self.get_parameter('target_position').value
+        target_orientation = self.get_parameter('target_orientation').value
+        self.target_position = np.array(target_position, dtype=np.float64)
+        self.target_orientation = np.array(target_orientation, dtype=np.float64)    
+
         self.publisher = self.create_publisher(
             JointState,
             '/joint_states',
             10
         )
-        self.subscription = self.create_subscription(
-            PoseStamped,
-            '/goal_pose',
-            self.inv_kine_callback,
-            10
-        )
-        self.subscription  # prevent unused variable warning
         # Robot buffers and state
         self.last_joint_angles = None
         self.last_target_angles = None
@@ -31,22 +33,22 @@ class InvKinematicsNode(Node):
         self.joint_names = list(self.robot.joint_names())
         self.solver = placo.KinematicsSolver(self.robot)
         self.solver.mask_fbase(True)
-        self.ee_task = self.solver.add_frame_task("gripper_frame_link", np.eye(4))
-        self.ee_task.configure("effector", "soft", 1.0,1.0)
-    def inv_kine_callback(self, msg):
+        T = self.__set_default_robot_state()
+        self.ee_task = self.solver.add_frame_task("gripper_frame_link",T)
+        self.ee_task.configure("effector", "soft", 2.0,0.0)
+        # Compute and publish joint angles based on the target position and orientation
+        self.inv_kine_callback()
+
+    def __set_default_robot_state(self):
+        # Set robot to a default configuration (e.g., all joints to zero)
+        for joint in self.joint_names:
+            self.robot.set_joint(joint, 0.0)
+        self.robot.update_kinematics()
+        T = self.robot.get_T_a_b("world", "gripper_frame_link")
+        return T
+    def inv_kine_callback(self):
         # Extract target position and orientation from the PoseStamped message
-        target_position = np.array([
-            msg.pose.position.x,
-            msg.pose.position.y,
-            msg.pose.position.z
-        ])
-        target_orientation = np.array([
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w
-        ])
-        joint_angles = self.inverse_kinematics(target_position, target_orientation)
+        joint_angles = self.inverse_kinematics(self.target_position, self.target_orientation)
         self.get_logger().info(f'Publishing joint angles: {self.joint_names} with values {joint_angles}')
         # Publish the computed joint angles
         joint_state_msg = JointState()
@@ -69,10 +71,13 @@ class InvKinematicsNode(Node):
         target = self.make_target(target_position, target_orientation)
         self.ee_task.T_world_frame = target
         self.solver.solve(True)
-        self.robot.update_kinematics()    
+        self.robot.update_kinematics()   
+        T_fk = self.robot.get_T_a_b('world', 'gripper_frame_link')
+        self.get_logger().info(f"FK T_pos = {T_fk[:3, 3]}, Target T = {target[:3, 3]}")
+        self.get_logger().info(f"T error = {np.linalg.norm(T_fk.T@target)}") 
         joint_angles = []
         for joint in self.joint_names:
-            joint_angles.append(self.robot.get_joint(joint))
+            joint_angles.append(np.round(self.robot.get_joint(joint), decimals=2))
         return joint_angles
     def make_target(self, position, orientation):
         target = np.eye(4)
