@@ -1,11 +1,18 @@
+import os
 import placo
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from ament_index_python.packages import get_package_share_directory
 
-robot = placo.RobotWrapper(
-    "src/arm_movement/Viz_asset/SO101/so101_new_calib.urdf",
-    placo.Flags.ignore_collisions
+# Loaded from the installed share dir (not src/) so placo can resolve the
+# URDF's package://arm_movement/... mesh URIs via the ROS resource index.
+URDF_PATH = os.path.join(
+    get_package_share_directory('arm_movement'),
+    'Viz_asset', 'SO101', 'so101_new_calib.urdf'
 )
+OUTPUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'taskspace_poses.npy')
+
+robot = placo.RobotWrapper(URDF_PATH, placo.Flags.ignore_collisions)
 
 ee_frame = "gripper_frame_link"
 
@@ -34,7 +41,8 @@ for _ in range(N):
     poses.append([pos[0], pos[1], pos[2], quat[0], quat[1], quat[2], quat[3]])
 
 poses = np.array(poses)
-print("Saved poses:", poses.shape)
+np.save(OUTPUT_PATH, poses)
+print("Saved poses:", poses.shape, "->", OUTPUT_PATH)
 
 # Example: print rough bounds of reachable position
 mins = poses[:, :3].min(axis=0)
