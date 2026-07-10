@@ -1,11 +1,17 @@
+import os
 import placo
 import numpy as np
 import matplotlib.pyplot as plt
+from ament_index_python.packages import get_package_share_directory
 
-robot = placo.RobotWrapper(
-    "src/arm_movement/Viz_asset/SO101/so101_new_calib.urdf",
-    placo.Flags.ignore_collisions
+# Loaded from the installed share dir (not src/) so placo can resolve the
+# URDF's package://arm_movement/... mesh URIs via the ROS resource index.
+URDF_PATH = os.path.join(
+    get_package_share_directory('arm_movement'),
+    'Viz_asset', 'SO101', 'so101_new_calib.urdf'
 )
+
+robot = placo.RobotWrapper(URDF_PATH, placo.Flags.ignore_collisions)
 
 joint_names = list(robot.joint_names())
 

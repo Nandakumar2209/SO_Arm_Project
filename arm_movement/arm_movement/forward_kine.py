@@ -1,7 +1,9 @@
+import os
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
-import placo 
+from ament_index_python.packages import get_package_share_directory
+import placo
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -11,13 +13,17 @@ class ForwardKinematicsNode(Node):
         super().__init__('forward_kinematics_node')
         self.subscription = self.create_subscription(
             JointState,
-            '/joint_states',
+            '/ik_joint_states',
             self.joint_state_callback,
             10
         )
         self.subscription  # prevent unused variable warning
         self.last_joint_angles = None
-        self.robot = placo.RobotWrapper("src/arm_movement/Viz_asset/SO101/so101_new_calib.urdf",placo.Flags.ignore_collisions)
+        urdf_path = os.path.join(
+            get_package_share_directory('arm_movement'),
+            'Viz_asset', 'SO101', 'so101_new_calib.urdf'
+        )
+        self.robot = placo.RobotWrapper(urdf_path, placo.Flags.ignore_collisions)
 
     def joint_state_callback(self, msg):
         # Extract joint angles from the message
@@ -50,7 +56,7 @@ class ForwardKinematicsNode(Node):
         robot_Tf_matrix = self.robot.get_T_a_b('world', 'gripper_frame_link')
         self.get_logger().info(f'Robot transformation matrix: {robot_Tf_matrix}')
         ee_position = robot_Tf_matrix[:3, 3]
-        ee_orientation = R.from_matrix(robot_Tf_matrix[:3, :3]).as_quat()
+        ee_orientation = R.from_matrix(robot_Tf_matrix[:3, :3]).as_euler('xyz', degrees=True)
         return (ee_position, ee_orientation)
 
 def main(args=None):
